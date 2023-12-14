@@ -1,7 +1,9 @@
 #ifndef _MECHANICS_HPP_
 #define _MECHANICS_HPP_
-extern double CTarg;
-extern bool Manual;
-void CataControl(void*ignore);
-void CataMove(bool Shoot);
+#define downTarg 9800 //8400 //7500
+extern double catapultTarg;
+extern bool catapultManual;
+void catapultControl(void*ignore);
+void setRollerSpeed(double speed);
+void shootCatapult();
 #endif

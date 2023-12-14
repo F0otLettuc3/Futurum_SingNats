@@ -1,44 +1,41 @@
- #include "main.h"
-#define CataKp 0.016
-#define CataKd 0
+#include "main.h"
+#define catapultP 0.027 //0.023 //0.017
+#define catapultD 0.012 //0.001
 
-Motor Catapult(CataPort);
-Rotation CataRot(CataSensor);
+Motor catapult(CataPort);
+Rotation catapultSensor(CataSensor);
+Controller master(E_CONTROLLER_MASTER);
 
-double CTarg = 73500, CPrevErr = 0, CPower = 0;
-bool Manual = false, CMoving;
-double CPos, catapultError;
-
-//Catapult Pid
-void CataControl(void*ignore){
+double catapultTarg = downTarg, catapultPower = 0, prevError = 0;
+bool catapultManual = false, catapultMoving;
+void catapultControl(void*ignore){
   while(true){
-    if(Manual == false){
-      CPos = CataRot.get_position()%108000;
-     catapultError = CTarg - CPos;
-     if((CPrevErr-fabs(catapultError))>90000||fabs(catapultError)<200){CMoving = false;}
-     else{CMoving=true;}
-     if(catapultError<0){catapultError = 108000-fabs(catapultError);}
-     if(CMoving==true){
-       CPower = catapultError*CataKp + (catapultError-CPrevErr)*CataKd;
-       Catapult.move(CPower);
-       CPrevErr = catapultError;
-     }
-     else{Catapult.move(0);}
-     double time = millis();
-     }
-     delay(5);
-     // printf("pos %.2f, targ %.2f, error%.2f, power%.2f\n",CPos,CTarg,catapultError,CPower);
-     delay(20);
-   }
+    if(catapultManual==false){
+      double catapultPosition = catapultSensor.get_angle();
+      double catapultError = catapultTarg - catapultPosition;
+      if((prevError-fabs(catapultError))>(35000)||fabs(catapultError)<50){catapultMoving = false;}
+      else{catapultMoving=true;}
+      if(catapultError<0){catapultError = (36000)-fabs(catapultError);}
+      if(catapultMoving==true){
+        catapultPower = catapultError*catapultP + (catapultError-prevError)*catapultD;
+        if(catapultPower>127){catapultPower=127;}
+        else if(catapultPower<0){catapultPower = 0;}
+        catapult.move(catapultPower);
+      }
+      else{
+        catapult.move(0);
+      }
+      double time = millis();
+      prevError = catapultError;
+      //printf(":%.2f s, pos:%.2f, targ:%.2f, err:%.2f, power:%.2f, \n",time, catapultPosition,catapultTarg,catapultError,catapultPower);
+      //printf("%s", catapultMoving ? "true\n" : "false\n");
+    }
+    delay(10);
+  }
 }
 
-void IntakeControl(double Time);
-
-void CataMove(bool Shoot){
-  if(Shoot == true){
-    CTarg = 0;
-  }
-  else{
-    CTarg = 67500;
-  }
+void shootCatapult(){
+  catapultTarg = 0;
+  delay(500);
+  catapultTarg = downTarg;
 }

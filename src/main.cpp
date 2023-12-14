@@ -23,12 +23,12 @@ void on_center_button() {
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
-	Motor FL(FLPort,E_MOTOR_GEARSET_18,false,E_MOTOR_ENCODER_DEGREES);
+	Motor FL(FLPort,E_MOTOR_GEARSET_18,true,E_MOTOR_ENCODER_DEGREES);
 	Motor ML(MLPort,E_MOTOR_GEARSET_18,false,E_MOTOR_ENCODER_DEGREES);
-	Motor BL(BLPort,E_MOTOR_GEARSET_18,false,E_MOTOR_ENCODER_DEGREES);
-	Motor FR(FRPort,E_MOTOR_GEARSET_18,true,E_MOTOR_ENCODER_DEGREES);
+	Motor BL(BLPort,E_MOTOR_GEARSET_18,true,E_MOTOR_ENCODER_DEGREES);
+	Motor FR(FRPort,E_MOTOR_GEARSET_18,false,E_MOTOR_ENCODER_DEGREES);
 	Motor MR(MRPort,E_MOTOR_GEARSET_18,true,E_MOTOR_ENCODER_DEGREES);
-	Motor BR(BRPort,E_MOTOR_GEARSET_18,true,E_MOTOR_ENCODER_DEGREES);
+	Motor BR(BRPort,E_MOTOR_GEARSET_18,false,E_MOTOR_ENCODER_DEGREES);
 
 	Motor Catapult(CataPort,E_MOTOR_GEARSET_36,false,E_MOTOR_ENCODER_DEGREES);
 	Motor Intake(IntakePort,E_MOTOR_GEARSET_06,true,E_MOTOR_ENCODER_DEGREES);
@@ -39,8 +39,8 @@ void initialize() {
 
 
 
-	Task catapultTask(CataControl, (void*)"PROS",TASK_PRIORITY_DEFAULT,TASK_STACK_DEPTH_DEFAULT);
-  Task debugTask(Debug, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT);
+	Task catapultTask(catapultControl, (void*)"PROS",TASK_PRIORITY_DEFAULT,TASK_STACK_DEPTH_DEFAULT);
+ 	Task debugTask(Debug, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT);
 	Task odometryTask(Odometry, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT);
 	Task sensorsTask(Sensors, (void*)"PROS", TASK_PRIORITY_DEFAULT, TASK_STACK_DEPTH_DEFAULT);
 
@@ -134,7 +134,7 @@ void autonomous() {
  * task, not resume it from where it left off.
  */
 void opcontrol() {
-	pros::Controller master(pros::E_CONTROLLER_MASTER);
+		Controller master(pros::E_CONTROLLER_MASTER);
 		Motor FL(FLPort);
 		Motor ML(MLPort);
 		Motor BL(BLPort);
@@ -153,13 +153,32 @@ void opcontrol() {
 		auton = false;
 		Expansion.set_value(HIGH);
 		Expansion2.set_value(HIGH);
+		double prevLeft, prevRight;
+		double powerL, powerR;
+		double setTime = millis();
+		bool wall = false;
+		bool climb = false;
+		bool tank = true;
+		double left, right;
 
 
 
 
 		while (true) {
-			double left = master.get_analog(ANALOG_LEFT_Y);
-			double right = master.get_analog(ANALOG_RIGHT_Y);
+
+			if(master.get_digital_new_press(DIGITAL_Y)){tank = !tank;}
+			
+			if(tank){
+			left = master.get_analog(ANALOG_LEFT_Y);
+			right = master.get_analog(ANALOG_RIGHT_Y);
+			}
+			else{
+			double power = master.get_analog(ANALOG_LEFT_Y);
+			double turn = master.get_analog(ANALOG_RIGHT_X);
+			left = power + turn;
+			right = power - turn;
+			
+			}
 
 			FL.move(left);
 			ML.move(left);
@@ -168,30 +187,26 @@ void opcontrol() {
 			MR.move(right);
 			BR.move(right);
 
-			if(master.get_digital_new_press(DIGITAL_R1)){CTarg = 0;}
-		else if(master.get_digital_new_press(DIGITAL_R2)){CTarg = 73500;}
-
-		if(master.get_digital(DIGITAL_Y)){
-			Manual = true;
-			Catapult.move(127);
+		if(master.get_digital_new_press(DIGITAL_L1)){
+			catapultTarg = 0;
+			setTime = millis();
 		}
-		else{Manual = false;}
-		double pos = CataRot.get_position()%108000;
-
-			if(master.get_digital(DIGITAL_L1)){Intake.move(127);}
-		else if(master.get_digital(DIGITAL_L2)){Intake.move(-127);}
-		else{Intake.move(0);}
-
-			if(master.get_digital_new_press(DIGITAL_X)){
-							Expansion.set_value(LOW);
-			}
-			if(master.get_digital(DIGITAL_A)){
-							Expansion2.set_value(LOW);
-			}
-			// printf("State: %d\n", State);
-
-
-
-			pros::delay(20);
+		if((millis()-setTime)>500){
+			catapultTarg = downTarg;
+			setTime = millis();
 		}
+
+		if(master.get_digital(DIGITAL_R1)){Intake.move(127);}
+		else if(master.get_digital(DIGITAL_R2)){Intake.move(-127);}
+		else{Intake.move(-30);}
+
+		if(master.get_digital_new_press(DIGITAL_L2)){wall = !wall;}
+		Expansion.set_value(wall);
+
+		if(master.get_digital_new_press(DIGITAL_X)){climb = !climb;}
+		Expansion2.set_value(climb);
+
+
+	delay(20);
 	}
+}
